@@ -73,6 +73,11 @@ class AudioManager {
     this.playTone(200, 0.1, 'square', 0.3, 400);
   }
 
+  playDroneLaunch() {
+    this.playTone(660, 0.15, 'sawtooth', 0.2, 330);
+    setTimeout(() => this.playTone(880, 0.1, 'square', 0.15), 80);
+  }
+
   playWin() {
     const notes = [523, 659, 784, 1047];
     notes.forEach((n, i) => {

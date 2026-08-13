@@ -16,6 +16,7 @@ class GameScene extends Phaser.Scene {
     this.createPlayer();
     this.createCoins();
     this.createEnemies();
+    this.createCrazyPepas();
     this.createFlag();
     this.createHUD();
     this.setupControls();
@@ -153,6 +154,131 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  createCrazyPepas() {
+    this.crazyPepas = this.physics.add.staticGroup();
+    this.drones = this.physics.add.group();
+
+    const pepaData = [
+      { x: 864, y: 296 },
+      { x: 2112, y: 312 }
+    ];
+
+    pepaData.forEach(data => {
+      const pepa = this.crazyPepas.create(data.x, data.y, 'crazy-pepa-0');
+      pepa.setOrigin(0.5, 1);
+      pepa.refreshBody();
+      pepa.body.setSize(20, 28);
+      pepa.body.setOffset(6, 4);
+      pepa.play('crazy-pepa-idle');
+      pepa.launchTimer = Phaser.Math.Between(3000, 5000);
+      pepa.telegraphing = false;
+      pepa.warningText = null;
+      pepa.hasShownApproachLabel = false;
+      pepa.hasShownPassLabel = false;
+      pepa.nameLabel = null;
+    });
+  }
+
+  createComicSpeechBubble(x, y, text) {
+    const container = this.add.container(x, y).setDepth(50);
+
+    const bubbleW = 132;
+    const bubbleH = 42;
+    const g = this.add.graphics();
+
+    const spikes = 10;
+    const outerX = bubbleW / 2;
+    const outerY = bubbleH / 2;
+    const innerX = outerX * 0.58;
+    const innerY = outerY * 0.58;
+    const pts = [];
+
+    for (let i = 0; i < spikes * 2; i++) {
+      const angle = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+      const rx = i % 2 === 0 ? outerX : innerX;
+      const ry = i % 2 === 0 ? outerY : innerY;
+      pts.push({
+        x: Math.cos(angle) * rx,
+        y: Math.sin(angle) * ry
+      });
+    }
+
+    g.fillStyle(0xffee00, 1);
+    g.fillPoints(pts, true);
+
+    const pointerY = bubbleH / 2 + 2;
+    g.fillStyle(0xffee00, 1);
+    g.fillTriangle(-8, pointerY, 8, pointerY, 0, pointerY + 14);
+
+    const labelText = this.add.text(0, -2, text, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '9px',
+      color: '#000000',
+      align: 'center',
+      stroke: '#ffffff',
+      strokeThickness: 1
+    }).setOrigin(0.5);
+
+    container.add([g, labelText]);
+    return container;
+  }
+
+  showCrazyPepaLabel(pepa, type = 'approach') {
+    if (pepa.nameLabel) return;
+
+    if (type === 'approach') {
+      if (pepa.hasShownApproachLabel) return;
+      pepa.hasShownApproachLabel = true;
+    } else {
+      if (pepa.hasShownPassLabel) return;
+      pepa.hasShownPassLabel = true;
+    }
+
+    const labelY = pepa.y - 52;
+    pepa.nameLabel = this.createComicSpeechBubble(pepa.x, labelY, 'Crazy Pepa');
+    pepa.nameLabel.setScale(0).setAlpha(1);
+
+    this.tweens.add({
+      targets: pepa.nameLabel,
+      scale: 1.15,
+      duration: 280,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!pepa.nameLabel) return;
+        this.tweens.add({
+          targets: pepa.nameLabel,
+          scale: 1,
+          duration: 120,
+          ease: 'Sine.easeOut'
+        });
+      }
+    });
+
+    this.tweens.add({
+      targets: pepa.nameLabel,
+      y: labelY - 6,
+      duration: 900,
+      yoyo: true,
+      repeat: 1,
+      ease: 'Sine.easeInOut'
+    });
+
+    this.time.delayedCall(2000, () => {
+      if (!pepa.nameLabel || !pepa.nameLabel.active) return;
+      this.tweens.add({
+        targets: pepa.nameLabel,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => {
+          if (pepa.nameLabel) {
+            pepa.nameLabel.destroy();
+            pepa.nameLabel = null;
+          }
+        }
+      });
+    });
+  }
+
   createFlag() {
     this.flag = this.physics.add.sprite(3520, 432, 'flag-0');
     this.flag.setOrigin(0.5, 1);
@@ -203,6 +329,9 @@ class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.enemies, this.platforms);
     this.physics.add.overlap(this.player, this.coins, this.collectCoin, null, this);
     this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
+    this.physics.add.overlap(this.player, this.crazyPepas, this.hitCrazyPepa, null, this);
+    this.physics.add.overlap(this.player, this.drones, this.hitDrone, null, this);
+    this.physics.add.collider(this.drones, this.platforms, (drone) => this.destroyDrone(drone), null, this);
     this.physics.add.overlap(this.player, this.flag, this.reachFlag, null, this);
   }
 
@@ -234,6 +363,77 @@ class GameScene extends Phaser.Scene {
     enemy.disableBody(true, true);
     enemy.setVisible(false);
     window.audioManager.playStomp();
+  }
+
+  hitCrazyPepa(player) {
+    if (this.isInvincible || this.gameOver) return;
+    this.takeDamage();
+  }
+
+  hitDrone(player, drone) {
+    if (!drone.active || this.isInvincible || this.gameOver) return;
+    this.destroyDrone(drone);
+    this.takeDamage();
+  }
+
+  destroyDrone(drone) {
+    if (!drone || !drone.active) return;
+    drone.disableBody(true, true);
+    drone.setVisible(false);
+  }
+
+  startDroneTelegraph(pepa) {
+    if (pepa.telegraphing || this.gameOver) return;
+    pepa.telegraphing = true;
+
+    pepa.setTint(0xffff00);
+    pepa.warningText = this.add.text(pepa.x, pepa.y - 40, '!', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '14px',
+      color: '#ff4444'
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: pepa.warningText,
+      y: pepa.y - 48,
+      alpha: { from: 1, to: 0.4 },
+      duration: 400,
+      yoyo: true,
+      repeat: 1
+    });
+
+    this.time.delayedCall(800, () => {
+      if (!pepa.active) return;
+      pepa.clearTint();
+      if (pepa.warningText) {
+        pepa.warningText.destroy();
+        pepa.warningText = null;
+      }
+      this.launchDrone(pepa);
+      pepa.telegraphing = false;
+      pepa.launchTimer = Phaser.Math.Between(4000, 6000);
+    });
+  }
+
+  launchDrone(pepa) {
+    if (this.gameOver) return;
+
+    const startX = pepa.x;
+    const startY = pepa.y - 24;
+    const targetX = this.player.x;
+    const targetY = this.player.y - 16;
+    const angle = Phaser.Math.Angle.Between(startX, startY, targetX, targetY);
+    const speed = 100;
+
+    const drone = this.drones.create(startX, startY, 'drone-0');
+    drone.setOrigin(0.5);
+    drone.body.setAllowGravity(false);
+    drone.body.setSize(12, 12);
+    drone.body.setOffset(2, 2);
+    drone.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+    drone.play('drone-spin');
+
+    window.audioManager.playDroneLaunch();
   }
 
   takeDamage() {
@@ -296,6 +496,8 @@ class GameScene extends Phaser.Scene {
     this.updateParallax();
     this.updatePlayer();
     this.updateEnemies();
+    this.updateCrazyPepas();
+    this.updateDrones();
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.M)) {
       const muted = window.audioManager.toggleMute();
@@ -377,6 +579,57 @@ class GameScene extends Phaser.Scene {
         enemy.direction = -1;
         enemy.setVelocityX(-40);
         enemy.setFlipX(true);
+      }
+    });
+  }
+
+  updateCrazyPepas() {
+    const delta = this.game.loop.delta;
+    const cam = this.cameras.main;
+    const triggerDistance = 480;
+    const passThreshold = 28;
+
+    this.crazyPepas.children.iterate(pepa => {
+      if (!pepa || !pepa.active) return;
+
+      if (!pepa.hasShownApproachLabel && !pepa.nameLabel) {
+        const dist = Phaser.Math.Distance.Between(
+          this.player.x, this.player.y, pepa.x, pepa.y
+        );
+        const isOnScreen = pepa.x >= cam.scrollX - 48 && pepa.x <= cam.scrollX + cam.width + 48;
+
+        if (dist <= triggerDistance || isOnScreen) {
+          this.showCrazyPepaLabel(pepa, 'approach');
+        }
+      }
+
+      if (!pepa.hasShownPassLabel && !pepa.nameLabel && this.player.x > pepa.x + passThreshold) {
+        this.showCrazyPepaLabel(pepa, 'pass');
+      }
+
+      if (pepa.telegraphing) return;
+
+      pepa.launchTimer -= delta;
+      if (pepa.launchTimer <= 0) {
+        this.startDroneTelegraph(pepa);
+      }
+    });
+  }
+
+  updateDrones() {
+    const cam = this.cameras.main;
+    const margin = 64;
+
+    this.drones.children.iterate(drone => {
+      if (!drone || !drone.active) return;
+
+      if (
+        drone.x < cam.scrollX - margin ||
+        drone.x > cam.scrollX + cam.width + margin ||
+        drone.y < -margin ||
+        drone.y > 520
+      ) {
+        this.destroyDrone(drone);
       }
     });
   }

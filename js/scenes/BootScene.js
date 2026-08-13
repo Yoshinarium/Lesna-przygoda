@@ -33,6 +33,8 @@ class BootScene extends Phaser.Scene {
     this.generateTileSprites();
     this.generateCoinSprites();
     this.generateEnemySprites();
+    this.generateCrazyPepaSprites();
+    this.generateDroneSprite();
     this.generateFlagSprite();
     this.generateHeartSprite();
     this.generateParallaxSprites();
@@ -94,6 +96,26 @@ class BootScene extends Phaser.Scene {
         { key: 'flag-1' }
       ],
       frameRate: 3,
+      repeat: -1
+    });
+
+    this.anims.create({
+      key: 'crazy-pepa-idle',
+      frames: [
+        { key: 'crazy-pepa-0' },
+        { key: 'crazy-pepa-1' }
+      ],
+      frameRate: 3,
+      repeat: -1
+    });
+
+    this.anims.create({
+      key: 'drone-spin',
+      frames: [
+        { key: 'drone-0' },
+        { key: 'drone-1' }
+      ],
+      frameRate: 8,
       repeat: -1
     });
   }
@@ -211,6 +233,58 @@ class BootScene extends Phaser.Scene {
       g.fillStyle(0x5a4020);
       g.fillTriangle(20, 6 + hornOffset, 24, 2, 28, 6 + hornOffset);
       g.generateTexture(`enemy-${frame}`, 32, 24);
+    }
+  }
+
+  generateCrazyPepaSprites() {
+    const colors = {
+      body: 0xff8cb4,
+      dress: 0xff5588,
+      cheek: 0xffaaaa,
+      eye: 0xffffff,
+      pupil: 0x222222,
+      hair: 0xcc4488
+    };
+
+    for (let frame = 0; frame < 2; frame++) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      const bob = frame === 0 ? 0 : 1;
+
+      this.drawPixelRect(g, 10, 4 + bob, 12, 10, colors.body);
+      this.drawPixelRect(g, 8, 14 + bob, 16, 10, colors.dress);
+      this.drawPixelRect(g, 6, 24 + bob, 6, 6, colors.dress);
+      this.drawPixelRect(g, 20, 24 + bob, 6, 6, colors.dress);
+      this.drawPixelRect(g, 8, 2 + bob, 4, 4, colors.hair);
+      this.drawPixelRect(g, 20, 2 + bob, 4, 4, colors.hair);
+      this.drawPixelRect(g, 14, 0 + bob, 4, 3, colors.hair);
+      this.drawPixelRect(g, 11, 10 + bob, 4, 3, colors.eye);
+      this.drawPixelRect(g, 19, 10 + bob, 4, 3, colors.eye);
+      this.drawPixelRect(g, 12, 11 + bob, 2, 2, colors.pupil);
+      this.drawPixelRect(g, 20, 11 + bob, 2, 2, colors.pupil);
+      this.drawPixelRect(g, 8, 14 + bob, 3, 2, colors.cheek);
+      this.drawPixelRect(g, 21, 14 + bob, 3, 2, colors.cheek);
+      this.drawPixelRect(g, 14, 16 + bob, 4, 2, 0xff3366);
+
+      g.generateTexture(`crazy-pepa-${frame}`, 32, 32);
+    }
+  }
+
+  generateDroneSprite() {
+    for (let frame = 0; frame < 2; frame++) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      g.fillStyle(0x444444);
+      g.fillRect(6, 6, 4, 4);
+      g.fillStyle(0x666666);
+      g.fillRect(7, 7, 2, 2);
+      g.fillStyle(0x888888);
+      const bladeOffset = frame === 0 ? 0 : 1;
+      g.fillRect(2 + bladeOffset, 7, 4, 2);
+      g.fillRect(10 - bladeOffset, 7, 4, 2);
+      g.fillRect(7, 2 + bladeOffset, 2, 4);
+      g.fillRect(7, 10 - bladeOffset, 2, 4);
+      g.fillStyle(0xff4444);
+      g.fillCircle(8, 8, 1);
+      g.generateTexture(`drone-${frame}`, 16, 16);
     }
   }
 
