@@ -1,0 +1,9 @@
+{
+  "name": "level1",
+  "width": 3600,
+  "height": 480,
+  "spawn": { "x": 64, "y": 400 },
+  "flag": { "x": 3520, "y": 360 },
+  "totalCoins": 22,
+  "notes": "Level data is embedded in GameScene.js for runtime use. This file documents the level layout."
+}
