@@ -1,3 +1,0 @@
-# Audio
-
-All sounds and music are generated via Web Audio API in AudioManager.js.

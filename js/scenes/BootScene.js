@@ -13,12 +13,27 @@ class BootScene extends Phaser.Scene {
       color: '#ffffff'
     }).setOrigin(0.5);
 
-    const barBg = this.add.rectangle(w / 2, h / 2 + 20, 280, 16, 0x2d5a3d);
+    this.add.rectangle(w / 2, h / 2 + 20, 280, 16, 0x2d5a3d);
     const bar = this.add.rectangle(w / 2 - 134, h / 2 + 20, 0, 12, 0xffd700);
     bar.setOrigin(0, 0.5);
 
-    this.generateAllAssets();
-    bar.width = 268;
+    const assetSteps = [
+      { label: 'Gracz...', fn: () => this.generatePlayerSprites() },
+      { label: 'Kafelki...', fn: () => this.generateTileSprites() },
+      { label: 'Monety...', fn: () => this.generateCoinSprites() },
+      { label: 'Wrogowie...', fn: () => this.generateEnemySprites() },
+      { label: 'Crazy Pepa...', fn: () => this.generateCrazyPepaSprites() },
+      { label: 'Drony...', fn: () => this.generateDroneSprite() },
+      { label: 'Flaga...', fn: () => this.generateFlagSprite() },
+      { label: 'Interfejs...', fn: () => this.generateHeartSprite() },
+      { label: 'Tło...', fn: () => this.generateParallaxSprites() }
+    ];
+
+    assetSteps.forEach((step, index) => {
+      step.fn();
+      bar.width = ((index + 1) / assetSteps.length) * 268;
+      loadingText.setText(step.label);
+    });
 
     this.createAnimations();
 
@@ -26,18 +41,6 @@ class BootScene extends Phaser.Scene {
     this.time.delayedCall(300, () => {
       this.scene.start('MenuScene');
     });
-  }
-
-  generateAllAssets() {
-    this.generatePlayerSprites();
-    this.generateTileSprites();
-    this.generateCoinSprites();
-    this.generateEnemySprites();
-    this.generateCrazyPepaSprites();
-    this.generateDroneSprite();
-    this.generateFlagSprite();
-    this.generateHeartSprite();
-    this.generateParallaxSprites();
   }
 
   createAnimations() {
@@ -346,7 +349,7 @@ class BootScene extends Phaser.Scene {
     drawFluffyCloud(sky, 720, 42, 0.9);
     sky.generateTexture('bg-sky', SKY_W, SKY_H);
 
-    const LANDSCAPE_W = 780;
+    const LANDSCAPE_W = 800;
     const LANDSCAPE_H = 280;
     const landscape = this.make.graphics({ x: 0, y: 0, add: false });
 
@@ -360,7 +363,7 @@ class BootScene extends Phaser.Scene {
 
     drawSoftMountain(landscape, -20, 90, 200, 118, 32, 0x7a9a8a, 0.35);
     drawSoftMountain(landscape, 100, 280, 420, 112, 18, 0x6a8a7a, 0.42);
-    drawSoftMountain(landscape, 340, 560, 780, 115, 28, 0x5a7a6a, 0.4);
+    drawSoftMountain(landscape, 340, 560, 800, 115, 28, 0x5a7a6a, 0.4);
     drawSoftMountain(landscape, 620, 720, LANDSCAPE_W + 20, 120, 45, 0x6a8a7a, 0.32);
     drawSoftMountain(landscape, 180, 380, 560, 108, 55, 0x8aa898, 0.25);
 

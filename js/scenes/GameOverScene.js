@@ -66,9 +66,12 @@ class GameOverScene extends Phaser.Scene {
       }).setOrigin(0.5);
     }
 
-    this.restartText = this.add.text(w / 2, h - 80, 'SPACJA - Menu  |  ENTER - Graj ponownie', {
+    this.createActionButton(w / 2 - 90, h - 110, 'MENU', () => this.goToMenu());
+    this.createActionButton(w / 2 + 90, h - 110, 'GRAJ', () => this.restartGame());
+
+    this.restartText = this.add.text(w / 2, h - 60, 'SPACJA - Menu  |  ENTER - Graj  |  ESC - Menu', {
       fontFamily: '"Press Start 2P", monospace',
-      fontSize: '9px',
+      fontSize: '8px',
       color: '#ffd700'
     }).setOrigin(0.5);
 
@@ -80,18 +83,40 @@ class GameOverScene extends Phaser.Scene {
       repeat: -1
     });
 
-    this.input.keyboard.once('keydown-SPACE', () => {
-      window.audioManager.startMusic();
-      this.scene.start('MenuScene');
-    });
-
-    this.input.keyboard.once('keydown-ENTER', () => {
-      window.audioManager.startMusic();
-      this.scene.start('GameScene');
-    });
+    this.input.keyboard.once('keydown-SPACE', () => this.goToMenu());
+    this.input.keyboard.once('keydown-ENTER', () => this.restartGame());
+    this.input.keyboard.once('keydown-ESC', () => this.goToMenu());
 
     this.input.keyboard.on('keydown-M', () => {
       window.audioManager.toggleMute();
+    });
+  }
+
+  createActionButton(x, y, label, onClick) {
+    const button = this.add.text(x, y, `[ ${label} ]`, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: '#ffd700'
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    button.on('pointerover', () => button.setColor('#ffffff'));
+    button.on('pointerout', () => button.setColor('#ffd700'));
+    button.on('pointerdown', onClick);
+
+    return button;
+  }
+
+  goToMenu() {
+    window.audioManager.ensureStarted().then(() => {
+      window.audioManager.startMusic();
+      this.scene.start('MenuScene');
+    });
+  }
+
+  restartGame() {
+    window.audioManager.ensureStarted().then(() => {
+      window.audioManager.startMusic();
+      this.scene.start('GameScene');
     });
   }
 }

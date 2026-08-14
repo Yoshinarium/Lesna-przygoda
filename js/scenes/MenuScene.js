@@ -5,7 +5,6 @@ class MenuScene extends Phaser.Scene {
 
   create() {
     window.audioManager.init();
-    window.audioManager.startMusic();
 
     const w = this.cameras.main.width;
     const h = this.cameras.main.height;
@@ -14,7 +13,7 @@ class MenuScene extends Phaser.Scene {
     this.add.image(w / 2, 205, 'bg-landscape').setScrollFactor(0).setAlpha(0.88);
     this.add.image(w / 2, 350, 'bg-trees').setScrollFactor(0).setAlpha(0.9);
 
-    const overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.25);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.25);
 
     this.add.text(w / 2, 80, 'Leśna Przygoda', {
       fontFamily: '"Press Start 2P", monospace',
@@ -34,10 +33,11 @@ class MenuScene extends Phaser.Scene {
     const instructions = [
       'Poruszaj się: ← → lub A D',
       'Skacz: Spacja, ↑ lub W',
-      'Wyciszenie: M',
+      'Pauza: P  |  Menu: ESC  |  Wyciszenie: M',
       '',
       'Unikaj leśnych stworów!',
-      'Skacz na nie, by je pokonać!'
+      'Skacz na nie, by je pokonać!',
+      'Uważaj na Crazy Pepa — strzela dronami!'
     ];
 
     instructions.forEach((line, i) => {
@@ -63,10 +63,22 @@ class MenuScene extends Phaser.Scene {
       repeat: -1
     });
 
+    this.audioStarted = false;
+    this.bindMenuInput(w, h);
+    this.input.once('pointerdown', () => this.ensureAudioStarted());
+  }
+
+  bindMenuInput(w, h) {
     this.input.keyboard.once('keydown-SPACE', () => this.startGame());
     this.input.keyboard.once('keydown-ENTER', () => this.startGame());
 
+    this.input.keyboard.on('keydown', (event) => {
+      if (event.code === 'Space' || event.code === 'Enter') return;
+      this.ensureAudioStarted();
+    });
+
     this.input.keyboard.on('keydown-M', () => {
+      this.ensureAudioStarted();
       const muted = window.audioManager.toggleMute();
       this.muteText = this.muteText || this.add.text(w / 2, h - 30, '', {
         fontFamily: '"Press Start 2P", monospace',
@@ -77,8 +89,22 @@ class MenuScene extends Phaser.Scene {
     });
   }
 
+  ensureAudioStarted() {
+    if (this.audioStarted) return;
+    this.audioStarted = true;
+    window.audioManager.ensureStarted().then(() => {
+      if (!window.audioManager.musicPlaying) {
+        window.audioManager.startMusic();
+      }
+    });
+  }
+
   startGame() {
-    window.audioManager.resume();
-    this.scene.start('GameScene');
+    window.audioManager.ensureStarted().then(() => {
+      if (!window.audioManager.musicPlaying) {
+        window.audioManager.startMusic();
+      }
+      this.scene.start('GameScene');
+    });
   }
 }

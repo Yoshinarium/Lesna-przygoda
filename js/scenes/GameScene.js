@@ -3,13 +3,19 @@ class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
+  preload() {
+    this.load.json('level1', 'assets/maps/level1.json');
+  }
+
   create() {
-    this.TOTAL_COINS = 22;
+    this.levelData = this.cache.json.get('level1');
+    this.TOTAL_COINS = this.levelData.totalCoins;
     this.coinsCollected = 0;
     this.lives = 3;
     this.isInvincible = false;
     this.gameOver = false;
     this.respawning = false;
+    this.isPaused = false;
     this.levelResetId = 0;
 
     this.createBackground();
@@ -20,16 +26,19 @@ class GameScene extends Phaser.Scene {
     this.createCrazyPepas();
     this.createFlag();
     this.createHUD();
+    this.createPauseOverlay();
     this.setupControls();
     this.setupCollisions();
 
-    this.physics.world.setBounds(0, 0, this.levelWidth, 480);
-    this.cameras.main.setBounds(0, 0, this.levelWidth, 480);
+    this.physics.world.setBounds(0, 0, this.levelWidth, this.levelData.height);
+    this.cameras.main.setBounds(0, 0, this.levelWidth, this.levelData.height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
     this.cameras.main.setZoom(1);
 
-    if (!window.audioManager.musicInterval) {
-      window.audioManager.startMusic();
+    if (!window.audioManager.musicPlaying) {
+      window.audioManager.ensureStarted().then(() => {
+        window.audioManager.startMusic();
+      });
     }
   }
 
@@ -49,36 +58,9 @@ class GameScene extends Phaser.Scene {
 
   createLevel() {
     this.platforms = this.physics.add.staticGroup();
-    this.levelWidth = 3600;
+    this.levelWidth = this.levelData.width;
 
-    const platformData = [
-      { x: 0, y: 448, w: 24, tile: 'grass' },
-      { x: 768, y: 448, w: 8, tile: 'grass' },
-      { x: 1024, y: 448, w: 6, tile: 'grass' },
-      { x: 1216, y: 448, w: 10, tile: 'grass' },
-      { x: 1536, y: 448, w: 8, tile: 'grass' },
-      { x: 1792, y: 448, w: 12, tile: 'grass' },
-      { x: 2176, y: 448, w: 10, tile: 'grass' },
-      { x: 2496, y: 448, w: 8, tile: 'grass' },
-      { x: 2752, y: 448, w: 14, tile: 'grass' },
-      { x: 3200, y: 448, w: 12, tile: 'grass' },
-
-      { x: 480, y: 376, w: 4, tile: 'wood' },
-      { x: 640, y: 336, w: 3, tile: 'wood' },
-      { x: 800, y: 312, w: 4, tile: 'wood' },
-      { x: 992, y: 360, w: 3, tile: 'stone' },
-      { x: 1184, y: 328, w: 4, tile: 'wood' },
-      { x: 1408, y: 360, w: 3, tile: 'stone' },
-      { x: 1632, y: 320, w: 4, tile: 'wood' },
-      { x: 1824, y: 360, w: 3, tile: 'wood' },
-      { x: 2048, y: 328, w: 4, tile: 'stone' },
-      { x: 2272, y: 360, w: 3, tile: 'wood' },
-      { x: 2496, y: 320, w: 4, tile: 'wood' },
-      { x: 2720, y: 360, w: 3, tile: 'stone' },
-      { x: 3008, y: 376, w: 3, tile: 'wood' }
-    ];
-
-    platformData.forEach(p => {
+    this.levelData.platforms.forEach(p => {
       for (let i = 0; i < p.w; i++) {
         const tileX = p.x + i * 32;
         const tileY = p.y;
@@ -99,8 +81,8 @@ class GameScene extends Phaser.Scene {
   }
 
   createPlayer() {
-    this.playerSpawnX = 64;
-    this.playerSpawnY = 400;
+    this.playerSpawnX = this.levelData.spawn.x;
+    this.playerSpawnY = this.levelData.spawn.y;
     this.player = this.physics.add.sprite(this.playerSpawnX, this.playerSpawnY, 'player-idle');
     this.player.setCollideWorldBounds(true);
     this.player.setBounce(0);
@@ -113,36 +95,20 @@ class GameScene extends Phaser.Scene {
 
   createCoins() {
     this.coins = this.physics.add.group({ allowGravity: false });
+    this.levelData.coins.forEach(pos => this.spawnCoin(pos.x, pos.y));
+  }
 
-    const coinPositions = [
-      { x: 128, y: 400 }, { x: 256, y: 400 }, { x: 384, y: 400 },
-      { x: 512, y: 328 }, { x: 672, y: 288 },
-      { x: 832, y: 264 }, { x: 896, y: 280 }, { x: 960, y: 400 },
-      { x: 1008, y: 312 }, { x: 1152, y: 400 },
-      { x: 1216, y: 280 }, { x: 1504, y: 400 },
-      { x: 1424, y: 312 }, { x: 1664, y: 272 },
-      { x: 1856, y: 312 }, { x: 2080, y: 280 },
-      { x: 2304, y: 312 }, { x: 2528, y: 272 },
-      { x: 2752, y: 312 }, { x: 3040, y: 328 },
-      { x: 3200, y: 400 }, { x: 3360, y: 400 }
-    ];
-
-    coinPositions.forEach(pos => {
-      const coin = this.coins.create(pos.x, pos.y, 'coin-0');
-      coin.setOrigin(0.5);
-      coin.body.setAllowGravity(false);
-      coin.play('coin-spin');
-    });
+  spawnCoin(x, y) {
+    const coin = this.coins.create(x, y, 'coin-0');
+    coin.setOrigin(0.5);
+    coin.body.setAllowGravity(false);
+    coin.play('coin-spin');
+    return coin;
   }
 
   createEnemies() {
     this.enemies = this.physics.add.group();
-
-    this.enemyInitialData = [
-      { x: 400, y: 420, minX: 320, maxX: 720 },
-      { x: 1400, y: 420, minX: 1240, maxX: 1520 },
-      { x: 2600, y: 420, minX: 2500, maxX: 2720 }
-    ];
+    this.enemyInitialData = this.levelData.enemies;
 
     this.enemyInitialData.forEach(data => {
       const enemy = this.enemies.create(data.x, data.y, 'enemy-0');
@@ -165,12 +131,7 @@ class GameScene extends Phaser.Scene {
     this.crazyPepas = this.physics.add.staticGroup();
     this.drones = this.physics.add.group();
 
-    const pepaData = [
-      { x: 864, y: 312 },
-      { x: 2112, y: 328 }
-    ];
-
-    pepaData.forEach(data => {
+    this.levelData.crazyPepas.forEach(data => {
       const pepa = this.crazyPepas.create(data.x, data.y, 'crazy-pepa-0');
       pepa.setOrigin(0.5, 1);
       pepa.body.setSize(20, 28);
@@ -287,7 +248,7 @@ class GameScene extends Phaser.Scene {
   }
 
   createFlag() {
-    this.flag = this.physics.add.sprite(3520, 432, 'flag-0');
+    this.flag = this.physics.add.sprite(this.levelData.flag.x, this.levelData.flag.y, 'flag-0');
     this.flag.setOrigin(0.5, 1);
     this.flag.body.setAllowGravity(false);
     this.flag.body.setSize(20, 50);
@@ -320,6 +281,29 @@ class GameScene extends Phaser.Scene {
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(101);
   }
 
+  createPauseOverlay() {
+    this.pauseOverlay = this.add.container(400, 240).setScrollFactor(0).setDepth(200).setVisible(false);
+
+    const bg = this.add.rectangle(0, 0, 800, 480, 0x000000, 0.65);
+    const title = this.add.text(0, -50, 'PAUZA', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '24px',
+      color: '#ffd700'
+    }).setOrigin(0.5);
+    const resumeHint = this.add.text(0, 10, 'P - wznów grę', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: '#ffffff'
+    }).setOrigin(0.5);
+    const menuHint = this.add.text(0, 44, 'ESC - powrót do menu', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '10px',
+      color: '#e8f5e9'
+    }).setOrigin(0.5);
+
+    this.pauseOverlay.add([bg, title, resumeHint, menuHint]);
+  }
+
   setupControls() {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keys = this.input.keyboard.addKeys({
@@ -327,7 +311,9 @@ class GameScene extends Phaser.Scene {
       A: Phaser.Input.Keyboard.KeyCodes.A,
       S: Phaser.Input.Keyboard.KeyCodes.S,
       D: Phaser.Input.Keyboard.KeyCodes.D,
-      M: Phaser.Input.Keyboard.KeyCodes.M
+      M: Phaser.Input.Keyboard.KeyCodes.M,
+      P: Phaser.Input.Keyboard.KeyCodes.P,
+      ESC: Phaser.Input.Keyboard.KeyCodes.ESC
     });
   }
 
@@ -390,7 +376,7 @@ class GameScene extends Phaser.Scene {
   }
 
   startDroneTelegraph(pepa) {
-    if (pepa.telegraphing || this.gameOver) return;
+    if (pepa.telegraphing || this.gameOver || this.isPaused) return;
     pepa.telegraphing = true;
 
     pepa.setTint(0xffff00);
@@ -424,7 +410,7 @@ class GameScene extends Phaser.Scene {
   }
 
   launchDrone(pepa) {
-    if (this.gameOver) return;
+    if (this.gameOver || this.isPaused) return;
 
     const startX = pepa.x;
     const startY = pepa.y - 24;
@@ -481,11 +467,19 @@ class GameScene extends Phaser.Scene {
     this.facingRight = true;
     this.player.anims.play('player-idle', true);
 
+    this.resetCoins();
     this.resetEnemies();
     this.resetCrazyPepas();
 
     this.cameras.main.centerOn(this.playerSpawnX, this.playerSpawnY);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+  }
+
+  resetCoins() {
+    this.coinsCollected = 0;
+    this.coinText.setText(`Monety: 0/${this.TOTAL_COINS}`);
+    this.coins.clear(true, true);
+    this.levelData.coins.forEach(pos => this.spawnCoin(pos.x, pos.y));
   }
 
   resetEnemies() {
@@ -519,6 +513,12 @@ class GameScene extends Phaser.Scene {
         pepa.warningText.destroy();
         pepa.warningText = null;
       }
+      if (pepa.nameLabel) {
+        pepa.nameLabel.destroy();
+        pepa.nameLabel = null;
+      }
+      pepa.hasShownApproachLabel = false;
+      pepa.hasShownPassLabel = false;
       pepa.launchTimer = Phaser.Math.Between(3000, 5000);
     });
   }
@@ -527,6 +527,29 @@ class GameScene extends Phaser.Scene {
     this.livesIcons.forEach((heart, i) => {
       heart.setTexture(i < this.lives ? 'heart' : 'heart-empty');
     });
+  }
+
+  togglePause() {
+    if (this.gameOver) return;
+
+    this.isPaused = !this.isPaused;
+
+    if (this.isPaused) {
+      this.physics.pause();
+      this.pauseOverlay.setVisible(true);
+    } else {
+      this.physics.resume();
+      this.pauseOverlay.setVisible(false);
+    }
+  }
+
+  exitToMenu() {
+    if (this.isPaused) {
+      this.physics.resume();
+      this.isPaused = false;
+      this.pauseOverlay.setVisible(false);
+    }
+    this.scene.start('MenuScene');
   }
 
   reachFlag() {
@@ -550,6 +573,18 @@ class GameScene extends Phaser.Scene {
 
   update() {
     if (this.gameOver) return;
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+      this.exitToMenu();
+      return;
+    }
+
+    if (Phaser.Input.Keyboard.JustDown(this.keys.P)) {
+      this.togglePause();
+      return;
+    }
+
+    if (this.isPaused) return;
 
     this.updateParallax();
     this.updatePlayer();

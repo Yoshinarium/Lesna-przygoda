@@ -1,11 +1,49 @@
 class AudioManager {
+  static FOREST_MELODY = [
+    // Wstęp — spokojny motyw w górę
+    { f: 294, d: 0.45, bass: 196 }, { f: 330, d: 0.45 }, { f: 349, d: 0.45 }, { f: 392, d: 0.55, bass: 262 },
+    { f: 440, d: 0.45 }, { f: 392, d: 0.45 }, { f: 349, d: 0.45 }, { f: 330, d: 0.65, bass: 220 },
+    { f: 0, d: 0.35 },
+
+    // Temat A — główna melodia
+    { f: 392, d: 0.4, bass: 262 }, { f: 440, d: 0.4 }, { f: 494, d: 0.4 }, { f: 523, d: 0.55 },
+    { f: 587, d: 0.4 }, { f: 523, d: 0.4 }, { f: 494, d: 0.4 }, { f: 440, d: 0.55, bass: 294 },
+    { f: 392, d: 0.75 }, { f: 0, d: 0.3 },
+
+    // Temat B — wyższy, lżejszy fragment
+    { f: 523, d: 0.35, bass: 330 }, { f: 587, d: 0.35 }, { f: 659, d: 0.35 }, { f: 587, d: 0.35 },
+    { f: 523, d: 0.35 }, { f: 494, d: 0.35 }, { f: 440, d: 0.35 }, { f: 494, d: 0.55 },
+    { f: 523, d: 0.45 }, { f: 440, d: 0.45 }, { f: 392, d: 0.85, bass: 262 },
+    { f: 0, d: 0.35 },
+
+    // Mostek — niższy, spokojniejszy
+    { f: 330, d: 0.55, bass: 220 }, { f: 349, d: 0.55 }, { f: 392, d: 0.55 }, { f: 349, d: 0.55 },
+    { f: 330, d: 0.55 }, { f: 294, d: 0.55, bass: 196 }, { f: 330, d: 0.55 }, { f: 349, d: 0.55 },
+    { f: 392, d: 0.9 }, { f: 0, d: 0.45 },
+
+    // Temat C — figura rytmiczna
+    { f: 440, d: 0.3, bass: 294 }, { f: 440, d: 0.3 }, { f: 494, d: 0.3 }, { f: 523, d: 0.3 },
+    { f: 494, d: 0.3 }, { f: 440, d: 0.3 }, { f: 392, d: 0.3 }, { f: 440, d: 0.3 },
+    { f: 392, d: 0.3 }, { f: 349, d: 0.3 }, { f: 330, d: 0.45 }, { f: 294, d: 0.45, bass: 196 },
+    { f: 330, d: 0.45 }, { f: 392, d: 0.95 },
+    { f: 0, d: 0.4 },
+
+    // Repryza — powrót do tematu z zakończeniem
+    { f: 392, d: 0.45, bass: 262 }, { f: 440, d: 0.45 }, { f: 494, d: 0.45 }, { f: 440, d: 0.45 },
+    { f: 392, d: 0.45 }, { f: 349, d: 0.45 }, { f: 330, d: 0.45 }, { f: 349, d: 0.45 },
+    { f: 392, d: 0.55 }, { f: 440, d: 0.55 }, { f: 392, d: 1.1, bass: 196 },
+    { f: 0, d: 0.8 }
+  ];
+
   constructor() {
     this.ctx = null;
     this.muted = false;
     this.musicGain = null;
     this.sfxGain = null;
     this.musicOscillators = [];
-    this.musicInterval = null;
+    this.musicTimeout = null;
+    this.musicPlaying = false;
+    this.musicStep = 0;
     this.initialized = false;
   }
 
@@ -17,7 +55,7 @@ class AudioManager {
       this.sfxGain = this.ctx.createGain();
       this.musicGain.connect(this.ctx.destination);
       this.sfxGain.connect(this.ctx.destination);
-      this.musicGain.gain.value = 0.12;
+      this.musicGain.gain.value = 0.45;
       this.sfxGain.gain.value = 0.35;
       this.initialized = true;
     } catch (e) {
@@ -27,13 +65,19 @@ class AudioManager {
 
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      return this.ctx.resume();
     }
+    return Promise.resolve();
+  }
+
+  ensureStarted() {
+    if (!this.initialized) this.init();
+    return this.resume();
   }
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.musicGain) this.musicGain.gain.value = this.muted ? 0 : 0.12;
+    if (this.musicGain) this.musicGain.gain.value = this.muted ? 0 : 0.45;
     if (this.sfxGain) this.sfxGain.gain.value = this.muted ? 0 : 0.35;
     return this.muted;
   }
@@ -93,41 +137,56 @@ class AudioManager {
   }
 
   startMusic() {
-    if (!this.ctx || this.musicInterval) return;
-    this.resume();
+    if (!this.initialized) this.init();
+    if (!this.ctx || this.musicPlaying) return;
 
-    const melody = [
-      { f: 392, d: 0.4 }, { f: 440, d: 0.4 }, { f: 494, d: 0.4 }, { f: 440, d: 0.4 },
-      { f: 392, d: 0.4 }, { f: 330, d: 0.4 }, { f: 349, d: 0.4 }, { f: 392, d: 0.8 },
-      { f: 330, d: 0.4 }, { f: 349, d: 0.4 }, { f: 392, d: 0.4 }, { f: 349, d: 0.4 },
-      { f: 330, d: 0.4 }, { f: 294, d: 0.4 }, { f: 330, d: 0.8 }, { f: 0, d: 0.4 }
-    ];
+    this.musicPlaying = true;
+    this.musicStep = 0;
+    this.scheduleMusicStep();
+  }
 
-    let step = 0;
-    this.musicInterval = setInterval(() => {
-      if (this.muted || !this.ctx) return;
-      const note = melody[step % melody.length];
+  scheduleMusicStep() {
+    if (!this.musicPlaying || !this.ctx) return;
+
+    const melody = AudioManager.FOREST_MELODY;
+    const note = melody[this.musicStep % melody.length];
+
+    if (!this.muted) {
+      this.resume();
       if (note.f > 0) {
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = note.f;
-        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + note.d);
-        osc.connect(gain);
-        gain.connect(this.musicGain);
-        osc.start();
-        osc.stop(this.ctx.currentTime + note.d);
-        this.musicOscillators.push(osc);
+        this.playMusicNote(note.f, note.d, note.type || 'triangle', note.v || 0.28);
       }
-      step++;
-    }, 400);
+      if (note.bass > 0) {
+        this.playMusicNote(note.bass, note.d * 1.05, 'sine', (note.bv || 0.14));
+      }
+    }
+
+    this.musicStep++;
+    const delayMs = Math.max(120, note.d * 1000);
+    this.musicTimeout = setTimeout(() => this.scheduleMusicStep(), delayMs);
+  }
+
+  playMusicNote(freq, duration, type, volume) {
+    if (!this.ctx || this.muted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration * 0.92);
+    osc.connect(gain);
+    gain.connect(this.musicGain);
+    osc.start();
+    osc.stop(this.ctx.currentTime + duration);
+    this.musicOscillators.push(osc);
   }
 
   stopMusic() {
-    if (this.musicInterval) {
-      clearInterval(this.musicInterval);
-      this.musicInterval = null;
+    this.musicPlaying = false;
+    if (this.musicTimeout) {
+      clearTimeout(this.musicTimeout);
+      this.musicTimeout = null;
     }
     this.musicOscillators.forEach(o => {
       try { o.stop(); } catch (_) {}
