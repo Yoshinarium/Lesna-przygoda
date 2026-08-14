@@ -10,6 +10,7 @@ class GameScene extends Phaser.Scene {
     this.isInvincible = false;
     this.gameOver = false;
     this.respawning = false;
+    this.levelResetId = 0;
 
     this.createBackground();
     this.createLevel();
@@ -33,13 +34,17 @@ class GameScene extends Phaser.Scene {
   }
 
   createBackground() {
-    this.bgSky = this.add.tileSprite(400, 240, 800, 480, 'bg-sky').setScrollFactor(0);
-    this.bgMountains = this.add.tileSprite(400, 100, 800, 200, 'bg-mountains')
+    this.bgSky = this.add.tileSprite(400, 240, 800, 480, 'bg-sky')
       .setScrollFactor(0)
-      .setAlpha(0.85);
-    this.bgTrees = this.add.tileSprite(400, 340, 800, 200, 'bg-trees')
+      .setDepth(-10);
+    this.bgLandscape = this.add.tileSprite(400, 205, 800, 280, 'bg-landscape')
       .setScrollFactor(0)
-      .setAlpha(0.9);
+      .setAlpha(0.92)
+      .setDepth(-9);
+    this.bgTrees = this.add.tileSprite(400, 350, 800, 200, 'bg-trees')
+      .setScrollFactor(0)
+      .setAlpha(0.94)
+      .setDepth(-8);
   }
 
   createLevel() {
@@ -94,7 +99,9 @@ class GameScene extends Phaser.Scene {
   }
 
   createPlayer() {
-    this.player = this.physics.add.sprite(64, 400, 'player-idle');
+    this.playerSpawnX = 64;
+    this.playerSpawnY = 400;
+    this.player = this.physics.add.sprite(this.playerSpawnX, this.playerSpawnY, 'player-idle');
     this.player.setCollideWorldBounds(true);
     this.player.setBounce(0);
     this.player.setSize(20, 28);
@@ -131,13 +138,13 @@ class GameScene extends Phaser.Scene {
   createEnemies() {
     this.enemies = this.physics.add.group();
 
-    const enemyData = [
+    this.enemyInitialData = [
       { x: 400, y: 420, minX: 320, maxX: 720 },
       { x: 1400, y: 420, minX: 1240, maxX: 1520 },
       { x: 2600, y: 420, minX: 2500, maxX: 2720 }
     ];
 
-    enemyData.forEach(data => {
+    this.enemyInitialData.forEach(data => {
       const enemy = this.enemies.create(data.x, data.y, 'enemy-0');
       enemy.setCollideWorldBounds(false);
       enemy.setBounce(0);
@@ -159,16 +166,16 @@ class GameScene extends Phaser.Scene {
     this.drones = this.physics.add.group();
 
     const pepaData = [
-      { x: 864, y: 296 },
-      { x: 2112, y: 312 }
+      { x: 864, y: 312 },
+      { x: 2112, y: 328 }
     ];
 
     pepaData.forEach(data => {
       const pepa = this.crazyPepas.create(data.x, data.y, 'crazy-pepa-0');
       pepa.setOrigin(0.5, 1);
-      pepa.refreshBody();
       pepa.body.setSize(20, 28);
       pepa.body.setOffset(6, 4);
+      pepa.refreshBody();
       pepa.play('crazy-pepa-idle');
       pepa.launchTimer = Phaser.Math.Between(3000, 5000);
       pepa.telegraphing = false;
@@ -402,8 +409,9 @@ class GameScene extends Phaser.Scene {
       repeat: 1
     });
 
+    const resetId = this.levelResetId;
     this.time.delayedCall(800, () => {
-      if (!pepa.active) return;
+      if (resetId !== this.levelResetId || !pepa.active) return;
       pepa.clearTint();
       if (pepa.warningText) {
         pepa.warningText.destroy();
@@ -447,6 +455,7 @@ class GameScene extends Phaser.Scene {
     }
 
     this.isInvincible = true;
+    this.resetLevelAfterDeath();
     this.player.setTint(0xff6666);
 
     this.tweens.add({
@@ -461,8 +470,57 @@ class GameScene extends Phaser.Scene {
         this.isInvincible = false;
       }
     });
+  }
 
-    this.player.setVelocity(-this.player.body.velocity.x * 0.5, -200);
+  resetLevelAfterDeath() {
+    this.levelResetId++;
+
+    this.player.setPosition(this.playerSpawnX, this.playerSpawnY);
+    this.player.setVelocity(0, 0);
+    this.player.setFlipX(false);
+    this.facingRight = true;
+    this.player.anims.play('player-idle', true);
+
+    this.resetEnemies();
+    this.resetCrazyPepas();
+
+    this.cameras.main.centerOn(this.playerSpawnX, this.playerSpawnY);
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+  }
+
+  resetEnemies() {
+    const children = this.enemies.getChildren();
+    this.enemyInitialData.forEach((data, i) => {
+      const enemy = children[i];
+      if (!enemy) return;
+
+      enemy.enableBody(true, true, true, true);
+      enemy.setVisible(true);
+      enemy.setPosition(data.x, data.y);
+      enemy.setVelocityX(-40);
+      enemy.setFlipX(true);
+      enemy.minX = data.minX;
+      enemy.maxX = data.maxX;
+      enemy.direction = -1;
+      enemy.isAlive = true;
+      enemy.play('enemy-walk');
+    });
+  }
+
+  resetCrazyPepas() {
+    this.drones.clear(true, true);
+
+    this.crazyPepas.children.iterate(pepa => {
+      if (!pepa || !pepa.active) return;
+
+      pepa.clearTint();
+      pepa.telegraphing = false;
+      if (pepa.warningText) {
+        pepa.warningText.destroy();
+        pepa.warningText = null;
+      }
+      pepa.launchTimer = Phaser.Math.Between(3000, 5000);
+    });
   }
 
   updateLivesHUD() {
@@ -509,7 +567,7 @@ class GameScene extends Phaser.Scene {
   updateParallax() {
     const scrollX = this.cameras.main.scrollX;
     this.bgSky.tilePositionX = scrollX * 0.05;
-    this.bgMountains.tilePositionX = scrollX * 0.2;
+    this.bgLandscape.tilePositionX = scrollX * 0.25;
     this.bgTrees.tilePositionX = scrollX * 0.4;
   }
 
@@ -550,8 +608,6 @@ class GameScene extends Phaser.Scene {
       this.respawning = true;
       this.takeDamage();
       if (this.lives > 0 && !this.gameOver) {
-        this.player.setPosition(64, 400);
-        this.player.setVelocity(0, 0);
         this.time.delayedCall(500, () => { this.respawning = false; });
       }
     }

@@ -318,32 +318,113 @@ class BootScene extends Phaser.Scene {
   }
 
   generateParallaxSprites() {
+    const SKY_W = 800;
+    const SKY_H = 480;
+
+    const drawFluffyCloud = (g, cx, cy, scale) => {
+      const puff = (x, y, r, color, alpha = 1) => {
+        g.fillStyle(color, alpha);
+        g.fillCircle(cx + x * scale, cy + y * scale, r * scale);
+      };
+
+      puff(0, 2, 7, 0xffffff, 0.92);
+      puff(10, -1, 9, 0xffffff, 0.95);
+      puff(22, 1, 7, 0xffffff, 0.9);
+      puff(32, 3, 6, 0xffffff, 0.88);
+      puff(14, 4, 6, 0xf4f8fc, 0.85);
+      puff(6, 5, 5, 0xe8f2fa, 0.8);
+      g.fillStyle(0xd0e8f6, 0.75);
+      g.fillRect(cx - 6 * scale, cy + 7 * scale, 40 * scale, 3 * scale);
+    };
+
     const sky = this.make.graphics({ x: 0, y: 0, add: false });
     sky.fillGradientStyle(0x87ceeb, 0x87ceeb, 0xb8e0f0, 0xb8e0f0, 1);
-    sky.fillRect(0, 0, 800, 480);
-    sky.generateTexture('bg-sky', 800, 480);
+    sky.fillRect(0, 0, SKY_W, SKY_H);
+    drawFluffyCloud(sky, 100, 48, 1.15);
+    drawFluffyCloud(sky, 340, 36, 1.0);
+    drawFluffyCloud(sky, 580, 58, 1.25);
+    drawFluffyCloud(sky, 720, 42, 0.9);
+    sky.generateTexture('bg-sky', SKY_W, SKY_H);
 
-    const mountains = this.make.graphics({ x: 0, y: 0, add: false });
-    mountains.fillStyle(0x5a7a6a);
-    mountains.fillTriangle(0, 200, 150, 60, 300, 200);
-    mountains.fillTriangle(200, 200, 400, 40, 600, 200);
-    mountains.fillTriangle(500, 200, 700, 80, 900, 200);
-    mountains.fillStyle(0x4a6a5a);
-    mountains.fillTriangle(100, 200, 250, 100, 400, 200);
-    mountains.fillTriangle(450, 200, 600, 90, 750, 200);
-    mountains.generateTexture('bg-mountains', 800, 200);
+    const LANDSCAPE_W = 780;
+    const LANDSCAPE_H = 280;
+    const landscape = this.make.graphics({ x: 0, y: 0, add: false });
 
-    const trees = this.make.graphics({ x: 0, y: 0, add: false });
-    for (let x = 0; x < 800; x += 60) {
-      const th = Phaser.Math.Between(60, 100);
-      trees.fillStyle(0x4a3020);
-      trees.fillRect(x + 24, 200 - th + 20, 12, th - 20);
-      trees.fillStyle(0x2d6b2d);
-      trees.fillCircle(x + 30, 200 - th, 28);
-      trees.fillStyle(0x3d8b3d);
-      trees.fillCircle(x + 22, 200 - th + 10, 20);
-      trees.fillCircle(x + 38, 200 - th + 10, 20);
+    landscape.fillGradientStyle(0xb8e0f0, 0xb8e0f0, 0xd4ecc4, 0xc8e6b0, 1);
+    landscape.fillRect(0, 0, LANDSCAPE_W, LANDSCAPE_H);
+
+    const drawSoftMountain = (g, x1, peakX, x2, baseY, peakY, color, alpha) => {
+      g.fillStyle(color, alpha);
+      g.fillTriangle(x1, baseY, peakX, peakY, x2, baseY);
+    };
+
+    drawSoftMountain(landscape, -20, 90, 200, 118, 32, 0x7a9a8a, 0.35);
+    drawSoftMountain(landscape, 100, 280, 420, 112, 18, 0x6a8a7a, 0.42);
+    drawSoftMountain(landscape, 340, 560, 780, 115, 28, 0x5a7a6a, 0.4);
+    drawSoftMountain(landscape, 620, 720, LANDSCAPE_W + 20, 120, 45, 0x6a8a7a, 0.32);
+    drawSoftMountain(landscape, 180, 380, 560, 108, 55, 0x8aa898, 0.25);
+
+    landscape.fillGradientStyle(0xd4ecc4, 0xd4ecc4, 0x8abb72, 0x7aab62, 0.85);
+    landscape.fillRect(0, 95, LANDSCAPE_W, LANDSCAPE_H - 95);
+
+    const meadowBaseY = LANDSCAPE_H - 18;
+    const meadowPalette = [0x6a9a52, 0x72a25a, 0x7aab62, 0x689852, 0x5e9048];
+    for (let x = 0; x < LANDSCAPE_W; x++) {
+      const t = (x / LANDSCAPE_W) * Math.PI * 2;
+      const roll =
+        22 * Math.sin(t * 2) +
+        14 * Math.sin(t * 3 + 0.8) +
+        8 * Math.sin(t * 5 + 1.4);
+      const surfaceY = meadowBaseY - roll;
+      const depth = meadowBaseY - surfaceY;
+      if (depth <= 0) continue;
+
+      const shade = meadowPalette[Math.abs(Math.floor(roll + 20)) % meadowPalette.length];
+      landscape.fillStyle(shade, 0.55);
+      landscape.fillRect(x, surfaceY, 1, depth + 18);
     }
-    trees.generateTexture('bg-trees', 800, 200);
+
+    landscape.fillStyle(0x7aab62, 0.35);
+    for (let x = 0; x < LANDSCAPE_W; x += 2) {
+      const t = (x / LANDSCAPE_W) * Math.PI * 2;
+      const roll = 18 * Math.sin(t * 2 + 0.5) + 10 * Math.sin(t * 4);
+      landscape.fillRect(x, meadowBaseY - roll - 6, 2, 8);
+    }
+
+    landscape.fillStyle(0x4a90c2, 0.82);
+    landscape.fillEllipse(185, 208, 72, 32);
+    landscape.fillEllipse(545, 218, 58, 26);
+    landscape.fillStyle(0x6ab0d8, 0.45);
+    landscape.fillEllipse(178, 202, 48, 18);
+    landscape.fillEllipse(538, 212, 38, 14);
+
+    const flowerColors = [0xffee88, 0xffcc66, 0xffffff, 0xffddaa];
+    for (let i = 0; i < 48; i++) {
+      const fx = (i * 137 + 41) % (LANDSCAPE_W - 40) + 20;
+      const fy = 175 + ((i * 89) % 55);
+      landscape.fillStyle(flowerColors[i % flowerColors.length], 0.65);
+      landscape.fillCircle(fx, fy, 1.5);
+    }
+
+    landscape.fillGradientStyle(0x000000, 0x000000, 0x000000, 0x000000, 0, 0, 0.18, 0.18);
+    landscape.fillRect(0, LANDSCAPE_H - 48, LANDSCAPE_W, 48);
+
+    landscape.generateTexture('bg-landscape', LANDSCAPE_W, LANDSCAPE_H);
+
+    const TREE_SPACING = 60;
+    const TREE_WIDTH = 13 * TREE_SPACING;
+    const trees = this.make.graphics({ x: 0, y: 0, add: false });
+    for (let x = 0; x < TREE_WIDTH; x += TREE_SPACING) {
+      const th = Phaser.Math.Between(62, 96);
+      const canopyY = 200 - th;
+      trees.fillStyle(0x4a3020);
+      trees.fillRect(x + 24, canopyY + 18, 12, th - 18);
+      trees.fillStyle(0x2d6b2d, 0.95);
+      trees.fillCircle(x + 30, canopyY, 26);
+      trees.fillStyle(0x3d8b3d, 0.88);
+      trees.fillCircle(x + 22, canopyY + 10, 18);
+      trees.fillCircle(x + 38, canopyY + 10, 18);
+    }
+    trees.generateTexture('bg-trees', TREE_WIDTH, 200);
   }
 }

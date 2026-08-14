@@ -11,8 +11,8 @@ class MenuScene extends Phaser.Scene {
     const h = this.cameras.main.height;
 
     this.add.image(w / 2, h / 2, 'bg-sky').setScrollFactor(0);
-    this.add.image(w / 2, 120, 'bg-mountains').setScrollFactor(0).setAlpha(0.7);
-    this.add.image(w / 2, 280, 'bg-trees').setScrollFactor(0).setAlpha(0.8);
+    this.add.image(w / 2, 205, 'bg-landscape').setScrollFactor(0).setAlpha(0.88);
+    this.add.image(w / 2, 350, 'bg-trees').setScrollFactor(0).setAlpha(0.9);
 
     const overlay = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.25);
 
