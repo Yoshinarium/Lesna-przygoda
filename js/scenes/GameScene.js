@@ -3,12 +3,17 @@ class GameScene extends Phaser.Scene {
     super({ key: 'GameScene' });
   }
 
-  preload() {
-    this.load.json('level1', 'assets/maps/level1.json');
-  }
-
   create() {
-    this.levelData = this.cache.json.get('level1');
+    this.levelData = typeof LEVEL_1_DATA !== 'undefined' ? LEVEL_1_DATA : null;
+    if (!this.levelData) {
+      this.add.text(400, 240, 'Błąd: brak danych poziomu.\nOdśwież stronę.', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+        align: 'center'
+      }).setOrigin(0.5);
+      return;
+    }
     this.TOTAL_COINS = this.levelData.totalCoins;
     this.coinsCollected = 0;
     this.lives = 3;
